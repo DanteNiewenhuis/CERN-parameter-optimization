@@ -8,15 +8,26 @@ import os
 from dataclasses import dataclass
 from random import randint, choice
 
+import subprocess
+from tqdm import tqdm
+import numpy as np
+import matplotlib.pyplot as plt
 ###############################################################################################################################
 ###### Helper Functions
 ###############################################################################################################################
 
 
-def get_runtime(outp, target: str = "Runtime-Main:"):
+def get_runtime(outp: str, target: str = "Runtime-Main:"):
     for line in outp.split("\n"):
         if target in line:
             return int(line.split(target)[1].strip()[:-2])
+        
+
+def get_throughput(outp: str, target = "RNTupleReader.RPageSourceFile.bwRead"):
+    for line in outp.split("\n"):
+        if target in line:
+
+            return float(line.split("|")[-1].strip())
 
 def convertToByte(value: int, form: str = "b") -> int:
     if form == "b" or form == "B":
@@ -135,7 +146,12 @@ class Configuration:
             var.initialize()
 
     def step(self):
+        self.previous_variables = [x for x in self.variables]
         self.variables[choice([0, len(self.variables)-1])].step()
+
+    def revert(self):
+        self.variables = self.previous_variables
+
 
     def __str__(self) -> str:
         s = f"Current configuration:\n"
@@ -145,67 +161,73 @@ class Configuration:
 
         return s
 
-
-# %%
-
-conf = Configuration()
-print(conf)
-
 # %%
 
 @dataclass
 class Climber:
     configuration: Configuration = None
+    benchmark: str = "lhcb"
+    file_name: str = "B2HHH"
 
     def __post_init__(self):
         if self.configuration == None:
             self.configuration = Configuration()
 
     def generate_file(self, conf: Configuration):
-        pass
+        compression = conf.compression_var.value
+        page_size = conf.page_size_var.value
+        cluster_size = conf.cluster_size_var.value
 
-    def evaluate(self, conf: Configuration) -> int:
-        
-        ## Generate file
+        executable_gen = f"iotools-master/gen_{self.benchmark}"
+        input_file = "ref/B2HHH~zstd.root"
+        output_folder = "generated"
+        output_file = f"{output_folder}/{self.file_name}~{compression}_{page_size}_{cluster_size}.ntuple"
+
+        if os.path.exists(output_file):
+            return
+
+
+        out = subprocess.getstatusoutput(f"./{executable_gen} -i {input_file} -o {output_folder} -c {compression} -p {page_size} -x {cluster_size}")
+
+    def run_benchmark(self, conf: Configuration):
+
+
+        compression = conf.compression_var.value
+        page_size = conf.page_size_var.value
+        cluster_size = conf.cluster_size_var.value
+
+        executable = f"iotools-master/{self.benchmark}"
+        input_file = f"generated/{self.file_name}~{compression}_{page_size}_{cluster_size}.ntuple"
+        use_rdf = "" # boolean: -r if true
+        cluster_bunch = conf.cluster_bunch_var.value
+
+        os.system('sudo sh -c "sync; echo 3 > /proc/sys/vm/drop_caches"')
+        out = subprocess.getstatusoutput(f"./{executable} -i {input_file} -x {cluster_bunch} {use_rdf} -p")
+
+        return get_throughput(out[1])
+
+    def evaluate_configuration(self, conf:Configuration):
+
         self.generate_file(conf)
+        
+        results = []
+        for _ in tqdm(range(50)):
+            results.append(self.run_benchmark(conf))
 
-        return 0
+        results = np.array(results)
+        print(f"{results.mean() = }\n{results = }")
+
+        with open("results/test.csv", "a") as wf:
+            for result in results:
+                wf.write(f"{result}\n")
+
+    
 
 
 # %%
 
-benchmark = "lhcb"
-
-executable = f"iotools-master/gen_{benchmark}"
-input_file = "ref/B2HHH~zstd.root"
-output_folder = "generated"
-
-compression = conf.compression_var.value
-page_size = conf.page_size_var.value
-cluster_size = conf.cluster_size_var.value
-
-os.system(f"./{executable} -i {input_file} -o {output_folder} -c {compression} -p {page_size} -x {cluster_size}")
-
-# %%
-
-executable = "iotools-master/lhcb"
-input_file = f"generated/B2HHH~{compression}_{page_size}_{cluster_size}.ntuple"
-use_rdf = "" # boolean: -r if true
-cluster_bunch = conf.cluster_bunch_var.value
-
-os.system(f"./{executable} -i {input_file} -x {cluster_bunch} {use_rdf}")
-
-# %%
-
-import subprocess
-
-out = subprocess.getstatusoutput(f"./{executable} -i {input_file} -x {cluster_bunch} {use_rdf}")
-# %%
-
-
-
-
-get_runtime(out[1])
-
+conf = Configuration()
+climber = Climber(conf)
+climber.evaluate_configuration(conf)
 
 # %%
