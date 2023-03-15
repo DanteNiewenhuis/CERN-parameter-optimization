@@ -12,6 +12,8 @@ import subprocess
 from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
+
+from datetime import datetime
 ###############################################################################################################################
 ###### Helper Functions
 ###############################################################################################################################
@@ -23,7 +25,7 @@ def get_runtime(outp: str, target: str = "Runtime-Main:"):
             return int(line.split(target)[1].strip()[:-2])
         
 
-def get_throughput(outp: str, target = "RNTupleReader.RPageSourceFile.bwRead"):
+def get_throughput(outp: str, target = "RNTupleReader.RPageSourceFile.bwRead"): # Change
     for line in outp.split("\n"):
         if target in line:
 
@@ -56,6 +58,7 @@ class Variable:
     value_names: list[str] = None
     variable_name: str = "no-variable_name"
     current_idx: int = None
+    previous_idx: int = None
 
     def __post_init__(self):
         if self.value_names == None:
@@ -69,6 +72,9 @@ class Variable:
 
     def step(self):
         raise NotImplementedError
+
+    def revert(self):
+        self.current_idx = self.previous_idx
     
     @property
     def value(self):
@@ -83,6 +89,7 @@ class Variable:
 @dataclass
 class DiscreteVariable(Variable):
     def step(self):
+        self.previous_idx = self.current_idx
         if self.current_idx == 0:
             self.current_idx = 1
             return
@@ -94,11 +101,10 @@ class DiscreteVariable(Variable):
         self.current_idx = choice([self.current_idx - 1, 
                                    self.current_idx + 1])
 
-        print(self.current_idx)
-
 @dataclass
 class CategoricalVariable(Variable):
     def step(self):
+        self.previous_idx = self.current_idx
         self.current_idx = choice([x for x in range(len(self.values)) if x != self.current_idx])
 
 ###############################################################################################################################
@@ -113,6 +119,7 @@ class Configuration:
     cluster_bunch_var: DiscreteVariable = None
 
     variables: list[Variable] = None
+    mutated_variable: Variable = None
 
     def __post_init__(self):
         if self.compression_var == None:
@@ -122,6 +129,15 @@ class Configuration:
                           self.page_size_var,
                           self.cluster_size_var,
                           self.cluster_bunch_var]
+        
+    @property
+    def names(self):
+        return [var.variable_name for var in self.variables]
+    
+    @property
+    def values(self):
+        return [var.value for var in self.variables]
+            
 
     def createBaseConfig(self):
         self.compression_var = CategoricalVariable(["none", "zlib", "lz4", "lzma", "zstd"], 
@@ -146,12 +162,11 @@ class Configuration:
             var.initialize()
 
     def step(self):
-        self.previous_variables = [x for x in self.variables]
-        self.variables[choice([0, len(self.variables)-1])].step()
+        self.mutated_variable = self.variables[choice(range(len(self.variables)))]
+        self.mutated_variable.step()
 
     def revert(self):
-        self.variables = self.previous_variables
-
+        self.mutated_variable.revert()
 
     def __str__(self) -> str:
         s = f"Current configuration:\n"
@@ -173,7 +188,7 @@ class Climber:
         if self.configuration == None:
             self.configuration = Configuration()
 
-    def generate_file(self, conf: Configuration):
+    def generate_file(self, conf: Configuration):    
         compression = conf.compression_var.value
         page_size = conf.page_size_var.value
         cluster_size = conf.cluster_size_var.value
@@ -186,12 +201,11 @@ class Climber:
         if os.path.exists(output_file):
             return
 
+        print(f"Generate file => {output_file}")
 
-        out = subprocess.getstatusoutput(f"./{executable_gen} -i {input_file} -o {output_folder} -c {compression} -p {page_size} -x {cluster_size}")
+        os.system(f"./{executable_gen} -i {input_file} -o {output_folder} -c {compression} -p {page_size} -x {cluster_size}")
 
     def run_benchmark(self, conf: Configuration):
-
-
         compression = conf.compression_var.value
         page_size = conf.page_size_var.value
         cluster_size = conf.cluster_size_var.value
@@ -206,28 +220,75 @@ class Climber:
 
         return get_throughput(out[1])
 
-    def evaluate_configuration(self, conf:Configuration):
+    def evaluate_configuration(self, conf:Configuration, evaluations: int = 10) -> list[float]:
 
         self.generate_file(conf)
         
         results = []
-        for _ in tqdm(range(50)):
+        for _ in tqdm(range(evaluations)):
             results.append(self.run_benchmark(conf))
 
-        results = np.array(results)
-        print(f"{results.mean() = }\n{results = }")
+        return results
 
-        with open("results/test.csv", "a") as wf:
-            for result in results:
-                wf.write(f"{result}\n")
+    def step(self, evaluations: int = 10):
+        self.configuration.step()
+        
+        results = self.evaluate_configuration(self.configuration, evaluations)
+        _performance = np.mean(results)
 
-    
+        if _performance > self.performance:
+            self.log_step(results, True)
+            self.performance = _performance
+        
+        else:
+            self.log_step(results, False)
+            self.configuration.revert()
+            
+
+    def log_step(self, results, success:bool = False):
+        with open(self.write_file, "a") as wf:
+            for value in self.configuration.values:
+                wf.write(f"{value},")
+
+            wf.write(f"{np.mean(results):.2f},{np.std(results):.2f},{success}")
+
+            for res in results:
+                wf.write(f",{res:.1f}")
+
+            wf.write("\n")
+
+    def evolve(self, steps: int = 100, evaluations: int = 10):
+        self.write_file: str = f'results/{datetime.now().strftime("%y-%m-%d_%H:%M:%S")}.csv'
+        
+        with open(self.write_file, "w") as wf:
+            for name in self.configuration.names:
+                wf.write(f"{name},")
+
+            wf.write(f"res_mean,res_std,success")
+
+            for i in range(evaluations):
+                wf.write(f",res_{i}")
+
+            wf.write("\n")
+
+        # Log initial configuration
+        print(f"Calculating Initial Performance")
+        results = self.evaluate_configuration(self.configuration, evaluations)
+        self.performance = np.mean(results)
+        self.log_step(results, True)
+        
+        # evolve the configuration for the given number of steps
+        print(f"Starting evolution")
+        for i in range(steps):
+            print(f"Step: {i} => Throughput: {self.performance:.3f}")
+            self.step(evaluations)
+
+
 
 
 # %%
 
 conf = Configuration()
 climber = Climber(conf)
-climber.evaluate_configuration(conf)
 
-# %%
+climber.evolve(steps=100)
