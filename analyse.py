@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 # %%
 
-df = pd.read_csv("results/annealer/23-03-17_12:21:38.csv")
+df = pd.read_csv("results/annealer/lhcb/23-03-17_15:22:54.csv")
 
 # %%
 
@@ -30,4 +30,16 @@ plt.show()
 
 # %%
 
-print(len(accepted_performance))
+df.columns
+
+# %%
+
+base_size = df['size'][0]
+
+# %%
+
+df['new_size'] = ((df['size'] - base_size) / base_size) * 100
+
+# %%
+
+df['new_size'].unique()

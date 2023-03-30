@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from tqdm import tqdm
 from datetime import datetime
 
-from Configuration import Configuration
+from PythonFiles.DataStructures.Configuration import Configuration
 import numpy as np
 
 

@@ -131,6 +131,7 @@ dmypy.json
 
 # My additions
 generated
+generated_test
 iotools-master
 ref
 papers

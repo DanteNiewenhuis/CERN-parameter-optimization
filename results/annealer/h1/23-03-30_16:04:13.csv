@@ -1,0 +1,3 @@
+compression,Page Size,Cluster Size,Cluster Bunch,throughput(MB/s),size(MB),throughput_increase(%),size_increase(%),performance(%),accepted,res_0
+lz4,65536,52428800,1,512.79,2306293718,0.000,0.000,0.000,True,512.8
+lz4,131072,52428800,1,638.62,2286739549,24.538,-0.848,12.693,True,638.6

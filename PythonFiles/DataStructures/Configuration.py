@@ -1,0 +1,186 @@
+from dataclasses import dataclass
+from random import choice
+
+from PythonFiles.utils import convertToByteList, convertByteToStr, get_throughput, get_size
+from PythonFiles.DataStructures.Variable import Variable, CategoricalVariable, DiscreteVariable
+
+import os
+import subprocess
+from tqdm import tqdm
+
+import numpy as np
+
+###############################################################################################################################
+###### Variables
+###############################################################################################################################
+
+
+###############################################################################################################################
+###### Configuration
+###############################################################################################################################
+
+@dataclass
+class Configuration:
+    compression_var: CategoricalVariable = None
+    page_size_var: DiscreteVariable = None
+    cluster_size_var: DiscreteVariable = None
+    cluster_bunch_var: DiscreteVariable = None
+
+    variables: list[Variable] = None
+    mutated_variable: Variable = None
+
+    def __post_init__(self):
+        if self.compression_var == None:
+            self.createBaseConfig()
+
+        self.variables = [self.compression_var, 
+                          self.page_size_var,
+                          self.cluster_size_var,
+                          self.cluster_bunch_var]
+        
+    @property
+    def names(self) -> list[str]:
+        return [var.variable_name for var in self.variables]
+    
+    @property
+    def values(self) -> list[str]:
+        return [var.value for var in self.variables]
+            
+
+    def createBaseConfig(self):
+        """ Creates the configuration that is the default configuration defined by ROOT
+        """
+        self.compression_var = CategoricalVariable("compression", ["none", "zlib", "lz4", "lzma", "zstd"], current_idx=2)
+        
+        page_sizes = [(16,"KB"), (32,"KB"), (64,"KB"), (128,"KB"), (256,"KB"), (512,"KB"),
+            (1,"MB"), (2,"MB"), (4,"MB"), (8,"MB"), (16,"MB")]
+        self.page_size_var = DiscreteVariable("Page Size", convertToByteList(page_sizes), 
+                                        value_names=convertByteToStr(page_sizes), current_idx=2)
+
+        cluster_sizes = [(20,"MB"), (30,"MB"), (40,"MB"), (50,"MB"), (100,"MB"), (200,"MB"),
+                        (300,"MB"), (400,"MB"), (500,"MB")]
+        self.cluster_size_var = DiscreteVariable("Cluster Size", convertToByteList(cluster_sizes), 
+                                        value_names=convertByteToStr(cluster_sizes), current_idx=3)
+        
+        self.cluster_bunch_var = DiscreteVariable("Cluster Bunch", [1,2,3,4,5], current_idx=0)
+
+    def randomize(self):
+        """ Change all variables to a random value
+        """
+        for var in self.variables:
+            var.initialize()
+
+    def step(self):
+        """ Make a random variable set a step
+        """
+        self.mutated_variable = self.variables[choice(range(len(self.variables)))]
+        self.mutated_variable.step()
+
+    def step_multi(self):
+        x = np.arange(len(self.variables)) + 1
+        print(f"{x = }")
+        prop = x[::-1] / np.sum(x)
+        print(f"{prop = }")
+        number_of_changes = np.random.choice(x, p=prop)
+
+        print(f"{number_of_changes = }")
+
+        idxs_to_change = np.random.choice(x-1, number_of_changes)
+
+        for i in idxs_to_change:
+            self.variables[i].step()
+
+    def revert(self):
+        """ Revert the previous step
+        """
+        self.mutated_variable.revert()
+
+    def __str__(self) -> str:
+        s = f"Current configuration:\n"
+
+        for var in self.variables:
+            s += f"{var.__str__()}\n"
+
+        return s
+    
+    def generate_file(self, benchmark_file: str, data_file: str) -> str:
+        """ Genereate a benchmark file based on the current configuration
+
+        Args:
+            benchmark_file (str): The type of benchmark to generate
+            data_file (str): The data file that should be used for generation
+
+        Returns:
+            str: full name of the generated file
+        """
+        compression = self.compression_var.value
+        page_size = self.page_size_var.value
+        cluster_size = self.cluster_size_var.value
+
+        executable_gen = f"iotools-master/gen_{benchmark_file}"
+        input_file = f"ref/{data_file}~zstd.root"
+        output_folder = "generated"
+        output_file = f"{output_folder}/{data_file}~{compression}_{page_size}_{cluster_size}.ntuple"
+
+        if os.path.exists(output_file):
+            print(f"output file already available => {output_file = }")
+            return output_file
+
+        print(f"Generating file => {output_file}")
+
+        print(f"./{executable_gen} -i {input_file} -o {output_folder} -c {compression} -p {page_size} -x {cluster_size}")
+
+        os.system(f"./{executable_gen} -i {input_file} -o {output_folder} -c {compression} -p {page_size} -x {cluster_size}")
+
+        return output_file
+
+    def run_benchmark(self, benchmark: str, data_file: str) -> float:
+        """ Run a benchmark based on the current configuration
+
+        Args:
+            benchmark_file (str): The type of benchmark to generate
+            data_file (str): The data file that is used for generation
+
+        Returns:
+            float: the throughput of the benchmark
+        """
+        compression = self.compression_var.value
+        page_size = self.page_size_var.value
+        cluster_size = self.cluster_size_var.value
+
+        executable = f"iotools-master/{benchmark}"
+        input_file = f"generated/{data_file}~{compression}_{page_size}_{cluster_size}.ntuple"
+        use_rdf = "" # boolean: -r if true
+        cluster_bunch = self.cluster_bunch_var.value
+
+        os.system('sudo sh -c "sync; echo 3 > /proc/sys/vm/drop_caches"')
+        out = subprocess.getstatusoutput(f"./{executable} -i {input_file} -x {cluster_bunch} {use_rdf} -p")
+
+        return get_throughput(out[1])
+    
+    def evaluate(self, benchmark_file: str, data_file: str, evaluations: int = 10) -> list[float]:
+        """ Evaluate the current configuration using a specific benchmark. 
+            The benchmark is generated, and run multiple times.
+
+        Args:
+            benchmark_file (str): The type of benchmark to generate
+            data_file (str): The data file that is used for generation
+            evaluations (int, optional): number of times the benchmark should be run. Defaults to 10.
+
+        Returns:
+            list[float]: The throughput of each run
+        """
+        
+        print(f"Evaluating configuration:\n {str(self)}")
+
+        output_file = self.generate_file(benchmark_file, data_file)
+        
+        size = get_size(output_file)
+        results = []
+        for _ in tqdm(range(evaluations)):
+            throughput = self.run_benchmark(output_file)
+            results.append((throughput, size))
+
+        os.remove(output_file)
+
+        return results
