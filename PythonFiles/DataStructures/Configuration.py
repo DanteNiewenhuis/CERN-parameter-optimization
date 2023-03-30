@@ -178,7 +178,7 @@ class Configuration:
         size = get_size(output_file)
         results = []
         for _ in tqdm(range(evaluations)):
-            throughput = self.run_benchmark(output_file)
+            throughput = self.run_benchmark(benchmark_file, data_file)
             results.append((throughput, size))
 
         os.remove(output_file)
