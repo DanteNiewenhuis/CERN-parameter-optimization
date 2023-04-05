@@ -133,7 +133,7 @@ def get_performance(results: list[tuple[int, int]], base_throughput: float,
         is_base (bool, optional): If true, the results are seen as the base results. Defaults to False.
 
     Returns:
-        tuple[float, int, float, float, float]: _description_
+        tuple[float, int, float, float, float]: mean_throughput, size, throughput_increase, size_decrease, performance
     """
     
     mean_throughput = np.mean([x[0] for x in results])
@@ -143,10 +143,10 @@ def get_performance(results: list[tuple[int, int]], base_throughput: float,
         return mean_throughput, size, 0, 0, 0
     
 
-    relative_throughput = ((mean_throughput - base_throughput) / base_throughput) * 100
-    relative_size = ((size - base_size) / base_size) * 100
+    throughput_increase = ((mean_throughput - base_throughput) / base_throughput) * 100
+    size_decrease = ((base_size - size) / base_size) * 100
 
-    performance = throughput_weight * relative_throughput - \
-                    (1-throughput_weight) * relative_size
+    performance = throughput_weight * throughput_increase + \
+                    (1-throughput_weight) * size_decrease
     
-    return mean_throughput, size, relative_throughput, relative_size, performance
+    return mean_throughput, size, throughput_increase, size_decrease, performance

@@ -29,28 +29,9 @@ def evolve_lhcb(steps, evaluations):
     annealer.evolve(steps=steps, evaluations=evaluations)
 
 
-evolve_lhcb(100, 10)
+evolve_cms(100, 10)
+
+
 evolve_atlas(100, 10)
 evolve_h1(100, 10)
 evolve_cms(100, 10)
-
-evolve_lhcb(100, 10)
-evolve_atlas(100, 10)
-evolve_h1(100, 10)
-evolve_cms(100, 10)
-
-evolve_lhcb(100, 10)
-evolve_atlas(100, 10)
-evolve_h1(100, 10)
-evolve_cms(100, 10)
-
-evolve_lhcb(100, 10)
-evolve_atlas(100, 10)
-evolve_h1(100, 10)
-evolve_cms(100, 10)
-
-evolve_lhcb(100, 10)
-evolve_atlas(100, 10)
-evolve_h1(100, 10)
-evolve_cms(100, 10)
-

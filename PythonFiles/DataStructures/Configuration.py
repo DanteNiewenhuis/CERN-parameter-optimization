@@ -2,11 +2,13 @@ from dataclasses import dataclass
 from random import choice
 
 from PythonFiles.utils import convertToByteList, convertByteToStr, get_throughput, get_size
-from PythonFiles.DataStructures.Variable import Variable, CategoricalVariable, DiscreteVariable
+from PythonFiles.DataStructures.Variable import Variable, CategoricalVariable, DiscreteVariable, \
+                                                getCompressionVar, getClusterSizeVar, getClusterBunchVar, getPageSizeVar
 
 import os
 import subprocess
 from tqdm import tqdm
+import time
 
 import numpy as np
 
@@ -103,7 +105,7 @@ class Configuration:
 
         return s
     
-    def generate_file(self, benchmark_file: str, data_file: str) -> str:
+    def generate_file(self, benchmark_file: str, data_file: str, output_folder:str = "generated") -> str:
         """ Genereate a benchmark file based on the current configuration
 
         Args:
@@ -119,7 +121,6 @@ class Configuration:
 
         executable_gen = f"iotools-master/gen_{benchmark_file}"
         input_file = f"ref/{data_file}~zstd.root"
-        output_folder = "generated"
         output_file = f"{output_folder}/{data_file}~{compression}_{page_size}_{cluster_size}.ntuple"
 
         if os.path.exists(output_file):
@@ -134,7 +135,7 @@ class Configuration:
 
         return output_file
 
-    def run_benchmark(self, benchmark: str, data_file: str) -> float:
+    def run_benchmark(self, benchmark: str, data_file: str, input_folder: str = "generated") -> float:
         """ Run a benchmark based on the current configuration
 
         Args:
@@ -149,7 +150,7 @@ class Configuration:
         cluster_size = self.cluster_size_var.value
 
         executable = f"iotools-master/{benchmark}"
-        input_file = f"generated/{data_file}~{compression}_{page_size}_{cluster_size}.ntuple"
+        input_file = f"{input_folder}/{data_file}~{compression}_{page_size}_{cluster_size}.ntuple"
         use_rdf = "" # boolean: -r if true
         cluster_bunch = self.cluster_bunch_var.value
 
@@ -158,7 +159,7 @@ class Configuration:
 
         return get_throughput(out[1])
     
-    def evaluate(self, benchmark_file: str, data_file: str, evaluations: int = 10) -> list[float]:
+    def evaluate(self, benchmark_file: str, data_file: str, evaluations: int = 10, folder:str = "generated", remove: bool = True) -> list[float]:
         """ Evaluate the current configuration using a specific benchmark. 
             The benchmark is generated, and run multiple times.
 
@@ -173,14 +174,35 @@ class Configuration:
         
         print(f"Evaluating configuration:\n {str(self)}")
 
-        output_file = self.generate_file(benchmark_file, data_file)
-        
+
+        start = time.time()
+        output_file = self.generate_file(benchmark_file, data_file, folder)
+        end = time.time()
+        writing_time = end - start
+
+
         size = get_size(output_file)
         results = []
+        start = time.time()
         for _ in tqdm(range(evaluations)):
-            throughput = self.run_benchmark(benchmark_file, data_file)
+            throughput = self.run_benchmark(benchmark_file, data_file, folder)
             results.append((throughput, size))
+        end = time.time()
+        processing_time = end - start
+        
+        if remove:
+            os.remove(output_file)
 
-        os.remove(output_file)
+        return results, writing_time, processing_time
 
-        return results
+
+def getConfiguration(compression, page_size, cluster_size, cluster_bunch):
+    compression_var = getCompressionVar(compression)
+    page_size_var = getPageSizeVar(int(page_size))
+    cluster_size_var = getClusterSizeVar(int(cluster_size))
+    cluster_bunch_var = getClusterBunchVar(int(cluster_bunch))
+
+    return Configuration(compression_var=compression_var,
+                         page_size_var=page_size_var,
+                         cluster_size_var=cluster_size_var,
+                         cluster_bunch_var=cluster_bunch_var)

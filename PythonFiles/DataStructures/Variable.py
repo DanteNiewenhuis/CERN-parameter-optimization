@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from random import randint, choice, uniform
 
+from PythonFiles.utils import convertByteToStr, convertToByteList
+
 @dataclass
 class Variable:
     variable_name: str
@@ -144,3 +146,45 @@ class ContinuousVariable(Variable):
         self.value = self.previous_value
 
 
+def getCompressionVar(current_value):
+    compression_types = ["none", "zlib", "lz4", "lzma", "zstd"]
+
+    if current_value not in compression_types:
+        raise ValueError(f"{current_value = } is not a valid value out {compression_types = }")
+    current_idx = compression_types.index(current_value)
+
+    return CategoricalVariable("compression", compression_types, current_idx=current_idx)
+
+def getPageSizeVar(current_value):
+    page_sizes = [(16,"KB"), (32,"KB"), (64,"KB"), (128,"KB"), (256,"KB"), (512,"KB"),
+            (1,"MB"), (2,"MB"), (4,"MB"), (8,"MB"), (16,"MB")]
+    value_names = convertByteToStr(page_sizes)
+
+    page_sizes = convertToByteList(page_sizes)
+
+    if current_value not in page_sizes:
+        raise ValueError(f"{current_value = } is not a valid value out {page_sizes = }")
+    current_idx = page_sizes.index(current_value)
+    
+    return DiscreteVariable("Page Size", page_sizes, value_names=value_names, current_idx=current_idx)
+
+def getClusterSizeVar(current_value):
+    cluster_sizes = [(20,"MB"), (30,"MB"), (40,"MB"), (50,"MB"), (100,"MB"), (200,"MB"),
+                        (300,"MB"), (400,"MB"), (500,"MB")]
+    value_names = convertByteToStr(cluster_sizes)
+
+    cluster_sizes = convertToByteList(cluster_sizes)
+
+    if current_value not in cluster_sizes:
+        raise ValueError(f"{current_value = } is not a valid value out {cluster_sizes = }")
+    current_idx = cluster_sizes.index(current_value)
+    
+    return DiscreteVariable("Cluster Size", cluster_sizes, value_names=value_names, current_idx=current_idx)
+
+def getClusterBunchVar(current_value):
+    cluster_bunches = [1,2,3,4,5]
+    if current_value not in cluster_bunches:
+        raise ValueError(f"{current_value = } is not a valid value out {cluster_bunches = }")
+    current_idx = cluster_bunches.index(current_value)
+    
+    return DiscreteVariable("Cluster Size", cluster_bunches, current_idx=current_idx)

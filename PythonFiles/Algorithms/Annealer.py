@@ -73,11 +73,11 @@ class Annealer:
         """
         self.configuration.step()
         
-        results = self.configuration.evaluate(self.benchmark_file, self.data_file, evaluations)
+        results, writing_time, processing_time = self.configuration.evaluate(self.benchmark_file, self.data_file, evaluations)
 
         print(f"{results = }")
         # Process the results to get performance measurements
-        mean_throughput, size, throughput_increase, size_increase, performance = \
+        mean_throughput, size, throughput_increase, size_decrease, performance = \
             get_performance(results, self.base_throughput, self.base_size, self.throughput_weight)
         
         print(f"{self.performance = }, {performance = }")
@@ -88,16 +88,16 @@ class Annealer:
 
         # Logging
         if sucess:
-            self.log_step(results, mean_throughput, throughput_increase, size, size_increase, performance, True)
+            self.log_step(results, mean_throughput, throughput_increase, size, size_decrease, performance, True, writing_time, processing_time)
             self.performance = performance
         
         else:
-            self.log_step(results, mean_throughput, throughput_increase, size, size_increase, performance, False)
+            self.log_step(results, mean_throughput, throughput_increase, size, size_decrease, performance, False, writing_time, processing_time)
             self.configuration.revert()
             
 
     def log_step(self, results: list[float], throughput:float, throughput_increase:float, size:int, 
-                 size_increase:float, performance: float = 1.0, accepted:bool = False):
+                 size_decrease:float, performance: float = 1.0, accepted:bool = False, writing_time: int = 0, processing_time: int = 0):
         """ Log a taken step
 
         Args:
@@ -105,7 +105,7 @@ class Annealer:
             throughput (float)
             throughput_increase (float)
             size (int)
-            size_increase (float)
+            size_decrease (float)
             performance (float, optional): Defaults to 1.0.
             accepted (bool, optional): Defaults to False.
         """
@@ -113,7 +113,7 @@ class Annealer:
             for value in self.configuration.values:
                 wf.write(f"{value},")
 
-            wf.write(f"{throughput:.2f},{size},{throughput_increase:.3f},{size_increase:.3f},{performance:.3f},{accepted}")
+            wf.write(f"{throughput:.2f},{size},{throughput_increase:.3f},{size_decrease:.3f},{performance:.3f},{accepted},{writing_time:.3f},{processing_time:.3f}")
 
             for res in results:
                 wf.write(f",{res[0]:.1f}")
@@ -127,16 +127,16 @@ class Annealer:
         Args:
             evaluations (int, optional) Defaults to 10.
         """
-        results = self.configuration.evaluate(self.benchmark_file, self.data_file, evaluations)
+        results, writing_time, processing_time = self.configuration.evaluate(self.benchmark_file, self.data_file, evaluations, folder="generated_base", remove=False)
 
-        mean_throughput, size, throughput_increase, size_increase, performance = \
+        mean_throughput, size, throughput_increase, size_decrease, performance = \
             get_performance(results, 0, 0, self.throughput_weight, is_base=True)
 
         self.base_throughput = mean_throughput
         self.base_size = size
         self.performance = performance
 
-        self.log_step(results, mean_throughput, throughput_increase, size, size_increase, performance, True)
+        self.log_step(results, mean_throughput, throughput_increase, size, size_decrease, performance, True, writing_time, processing_time)
 
     def evolve(self, steps: int = 100, evaluations: int = 10):
         """ Evolve the current configuration using the simmulated annealing algorithm
@@ -151,7 +151,7 @@ class Annealer:
             for name in self.configuration.names:
                 wf.write(f"{name},")
 
-            wf.write(f"throughput(MB/s),size(MB),throughput_increase(%),size_increase(%),performance(%),accepted")
+            wf.write(f"throughput(MB/s),size(MB),throughput_increase(%),size_decrease(%),performance(%),accepted,writing_time,processing_time")
 
             for i in range(evaluations):
                 wf.write(f",res_{i}")
