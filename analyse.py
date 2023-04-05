@@ -44,7 +44,13 @@ df_cms = pd.read_csv("results/annealer/cms/23-04-04_16:56:45.csv")
 
 # %%
 
-df = df_cms
+df = df_h1
+
+print(df[df["accepted"]]['performance(%)'][-5:])
+
+print(df['performance(%)'].max())
+
+
 
 # %%
 
@@ -53,10 +59,9 @@ df[df["performance(%)"] > 65]
 
 # %%
 
+for c, s in df.groupby("compression"):
 
-plt.hist(df["size_decrease(%)"], alpha=0.8, bins=20, label="size")
-plt.hist(df["throughput_increase(%)"], alpha=0.8, bins=20, label="throughput")
-plt.hist(df["performance(%)"], alpha=0.8, bins=20, label="performance")
+    plt.hist(s["performance(%)"], alpha=0.8, label=c)
 
 plt.legend()
 plt.show()
