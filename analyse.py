@@ -33,6 +33,8 @@ def increase_to_decrease(path_to_df):
 #     for run in os.listdir(f"results/annealer/{bench}"):
 #         increase_to_decrease(f"results/annealer/{bench}/{run}")
 
+parameters = ["compression", "Page Size", "Cluster Size", "Cluster Bunch"]
+metrics = ["throughput(MB/s)", "size(MB)", "throughput_increase(%)", "size_decrease(%)", "performance(%)"]
 
 # %%
 
@@ -79,3 +81,31 @@ for c, s in df.groupby("compression"):
 
 
 # %%
+
+df = df_cms
+
+res = []
+
+for index,row in df.iterrows():
+    if row["accepted"]:
+        res.append(row["performance(%)"])
+    else:
+        res.append(res[-1])
+
+plt.plot(res, label="accepted")
+plt.scatter(range(len(df)), df["performance(%)"], 
+            color="red", sizes=[5 for _ in range(len(df))],
+            label="attempted")
+
+plt.legend()
+
+plt.plot()
+
+
+# %%
+
+df_sorted = df_lhcb.sort_values("performance(%)", ascending=False)
+
+start = 0
+end = start + 20
+print(df_sorted[start:end][parameters + ["performance(%)"]])

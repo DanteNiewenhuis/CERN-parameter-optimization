@@ -3,6 +3,7 @@
 from PythonFiles.DataStructures.Configuration import Configuration
 from PythonFiles.Algorithms.Climber import Climber
 from PythonFiles.Algorithms.Annealer import Annealer
+from PythonFiles.Algorithms.AnnealerMultiBench import AnnealerMultiBench
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -29,9 +30,21 @@ def evolve_lhcb(steps, evaluations):
     annealer.evolve(steps=steps, evaluations=evaluations)
 
 
-evolve_cms(100, 10)
+# evolve_cms(100, 10)
 
 
-evolve_atlas(100, 10)
-evolve_h1(100, 10)
-evolve_cms(100, 10)
+# evolve_atlas(100, 10)
+# evolve_h1(100, 10)
+# evolve_cms(100, 10)
+
+conf = Configuration()
+
+annealer = AnnealerMultiBench(conf)
+
+annealer.evolve(100, 20)
+
+conf = Configuration()
+
+annealer = AnnealerMultiBench(conf)
+
+annealer.evolve(100, 20)
