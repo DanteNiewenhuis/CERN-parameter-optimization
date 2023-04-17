@@ -132,7 +132,6 @@ dmypy.json
 # My additions
 generated
 generated_base
-iotools-master
 ref
 papers
 results_old

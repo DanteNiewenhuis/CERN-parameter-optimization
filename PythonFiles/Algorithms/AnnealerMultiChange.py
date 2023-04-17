@@ -16,7 +16,7 @@ from PythonFiles.utils import get_performance
 # %%
 
 @dataclass
-class Annealer:
+class AnnealerMultiChange:
     configuration: Configuration = None
     
     # benchmark definitions
@@ -58,9 +58,25 @@ class Annealer:
     base_size: int = None
     performance: float = None
 
+    change_probabilities = []
+
     def __post_init__(self):
         if self.configuration == None:
             self.configuration = Configuration()
+
+    def create_probability_list(self, iterations):
+        x = np.arange(len(self.configuration.variables)) + 1
+        prop = x[::-1] / np.sum(x)
+        last_prop = np.zeros(len(self.configuration.variables))
+        last_prop[0] = 1
+
+        self.change_probabilities = np.linspace(prop, last_prop, iterations)
+
+    def get_num_changes(self, iteration):
+        if iteration > len(self.change_probabilities):
+            return self.change_probabilities[-1]
+        
+        return self.change_probabilities[iteration]
 
     def step(self, iteration: int, evaluations: int = 10):
         """ Change the current configuration. 
@@ -71,8 +87,10 @@ class Annealer:
             iteration (int)
             evaluations (int, optional). Defaults to 10.
         """
-        self.configuration.step()
-        
+        # print(f"{iteration = }, {self.get_num_changes(iteration) = }")
+
+        num_changes = self.configuration.step_multi(self.get_num_changes(iteration))
+
         results, writing_time, processing_time = self.configuration.evaluate(self.benchmark_file, self.data_file, evaluations)
 
         print(f"{results = }")
@@ -88,15 +106,15 @@ class Annealer:
 
         # Logging
         if sucess:
-            self.log_step(results, mean_throughput, throughput_increase, size, size_decrease, performance, True, writing_time, processing_time)
+            self.log_step(num_changes, results, mean_throughput, throughput_increase, size, size_decrease, performance, True, writing_time, processing_time)
             self.performance = performance
         
         else:
-            self.log_step(results, mean_throughput, throughput_increase, size, size_decrease, performance, False, writing_time, processing_time)
-            self.configuration.revert()
+            self.log_step(num_changes, results, mean_throughput, throughput_increase, size, size_decrease, performance, False, writing_time, processing_time)
+            self.configuration.revert_multi()
             
 
-    def log_step(self, results: list[float], throughput:float, throughput_increase:float, size:int, 
+    def log_step(self, num_changes: int, results: list[float], throughput:float, throughput_increase:float, size:int, 
                  size_decrease:float, performance: float = 1.0, accepted:bool = False, writing_time: int = 0, processing_time: int = 0):
         """ Log a taken step
 
@@ -110,7 +128,7 @@ class Annealer:
             accepted (bool, optional): Defaults to False.
         """
         with open(self.write_file, "a") as wf:
-            wf.write(f'{datetime.now().strftime("%y-%m-%d_%H:%M:%S")},')
+            wf.write(f'{datetime.now().strftime("%y-%m-%d_%H:%M:%S")},{num_changes},')
 
             for value in self.configuration.values:
                 wf.write(f"{value},")
@@ -138,7 +156,7 @@ class Annealer:
         self.base_size = size
         self.performance = performance
 
-        self.log_step(results, mean_throughput, throughput_increase, size, size_decrease, performance, True, writing_time, processing_time)
+        self.log_step(0, results, mean_throughput, throughput_increase, size, size_decrease, performance, True, writing_time, processing_time)
 
     def evolve(self, steps: int = 100, evaluations: int = 10):
         """ Evolve the current configuration using the simmulated annealing algorithm
@@ -147,11 +165,10 @@ class Annealer:
             steps (int, optional): Number of steps to evolve for. Defaults to 100.
             evaluations (int, optional): Number of times to run a benchmark with a configuration. Defaults to 10.
         """
-        self.write_file: str = f'results/annealer/{self.benchmark_file}/{datetime.now().strftime("%y-%m-%d_%H:%M:%S")}.csv'
+        self.write_file: str = f'results/annealer_multi_change/{self.benchmark_file}/{datetime.now().strftime("%y-%m-%d_%H:%M:%S")}.csv'
         
         with open(self.write_file, "w") as wf:
-            wf.write("time,")
-
+            wf.write("time,number_of_changes,")
             for name in self.configuration.names:
                 wf.write(f"{name},")
 
@@ -161,6 +178,8 @@ class Annealer:
                 wf.write(f",res_{i}")
 
             wf.write("\n")
+
+        self.create_probability_list(steps*2)
 
         # Log initial configuration
         print(f"Calculating Initial Performance")

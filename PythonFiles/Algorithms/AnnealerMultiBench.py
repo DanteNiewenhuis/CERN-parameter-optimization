@@ -137,6 +137,8 @@ class AnnealerMultiBench:
             accepted (bool, optional): Defaults to False.
         """
         with open(self.write_file, "a") as wf:
+            wf.write(f'{datetime.now().strftime("%y-%m-%d_%H:%M:%S")},')
+
             for value in self.configuration.values:
                 wf.write(f"{value},")
 
@@ -208,6 +210,8 @@ class AnnealerMultiBench:
         self.write_file: str = f'results/annealer_multi_bench/{datetime.now().strftime("%y-%m-%d_%H:%M:%S")}.csv'
         
         with open(self.write_file, "w") as wf:
+            wf.write(f'time,')
+
             for name in self.configuration.names:
                 wf.write(f"{name},")
 

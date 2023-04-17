@@ -31,6 +31,8 @@ class Configuration:
     variables: list[Variable] = None
     mutated_variable: Variable = None
 
+    mutated_variables: list[Variable] = None
+
     def __post_init__(self):
         if self.compression_var == None:
             self.createBaseConfig()
@@ -78,24 +80,29 @@ class Configuration:
         self.mutated_variable = self.variables[choice(range(len(self.variables)))]
         self.mutated_variable.step()
 
-    def step_multi(self):
+    def step_multi(self, prop):
         x = np.arange(len(self.variables)) + 1
-        print(f"{x = }")
-        prop = x[::-1] / np.sum(x)
-        print(f"{prop = }")
         number_of_changes = np.random.choice(x, p=prop)
-
-        print(f"{number_of_changes = }")
 
         idxs_to_change = np.random.choice(x-1, number_of_changes)
 
+        self.mutated_variables = []
         for i in idxs_to_change:
             self.variables[i].step()
+            self.mutated_variables.append(self.variables[i])
+
+        return number_of_changes
 
     def revert(self):
         """ Revert the previous step
         """
         self.mutated_variable.revert()
+
+    def revert_multi(self):
+        for var in self.mutated_variables:
+            var.revert()
+        
+        self.mutated_variables = []
 
     def __str__(self) -> str:
         s = f"Current configuration:\n"
@@ -119,7 +126,7 @@ class Configuration:
         page_size = self.page_size_var.value
         cluster_size = self.cluster_size_var.value
 
-        executable_gen = f"iotools-master/gen_{benchmark_file}"
+        executable_gen = f"../iotools/gen_{benchmark_file}"
         input_file = f"ref/{data_file}~zstd.root"
         output_file = f"{output_folder}/{data_file}~{compression}_{page_size}_{cluster_size}.ntuple"
 
@@ -149,7 +156,7 @@ class Configuration:
         page_size = self.page_size_var.value
         cluster_size = self.cluster_size_var.value
 
-        executable = f"iotools-master/{benchmark}"
+        executable = f"../iotools/{benchmark}"
         input_file = f"{input_folder}/{data_file}~{compression}_{page_size}_{cluster_size}.ntuple"
         use_rdf = "" # boolean: -r if true
         cluster_bunch = self.cluster_bunch_var.value
