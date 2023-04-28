@@ -52,7 +52,7 @@ class AnnealerMultiBench:
         return np.exp(c/self.get_temperature(iteration))
     
     # Performance parameters
-    throughput_weight: float = 0.5
+    throughput_weights: float = [0.5, 0.5]
     base_throughputs: list[float] = field(default_factory=list)
     base_sizes: list[int] = field(default_factory=list)
     current_performance: float = field(default_factory=list)
@@ -186,7 +186,7 @@ class AnnealerMultiBench:
             processing_times.append(processing_time)
 
             mean_throughput, size, throughput_increase, size_decrease, performance = \
-                get_performance(results, 0, 0, self.throughput_weight, is_base=True)
+                get_performance(results, 0, 0, self.throughput_weights, is_base=True)
 
             self.base_throughputs.append(mean_throughput)
             self.base_sizes.append(size)

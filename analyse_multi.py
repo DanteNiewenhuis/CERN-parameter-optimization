@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 df = pd.read_csv("results/annealer_multi_bench/23-04-12_16:37:14.csv")
 
 performances = ["performance_atlas(%)", "performance_cms(%)", "performance_h1(%)", "performance_lhcb(%)"]
+parameters = ["compression", "Cluster Size", "Page Size", "Cluster Bunch"]
+
 
 df_comp = pd.read_csv("results/annealer/comparison.csv")
 
@@ -51,14 +53,6 @@ for name, rows in df_comp.groupby("base_benchmark"):
 
 # %%
 
-df[df["accepted"]]["performance(%)"]
-
-# %%
-
-df[df["performance(%)"] == df["performance(%)"].max()][performances]
-
-# %%
-
 df_comp[df_comp["base_benchmark"] == "atlas"][["evaluated_benchmark", "performance(%)"]]
 
 # %%
@@ -78,6 +72,19 @@ def cross_table(df, benchmarks):
 
     return grid
 
-cross_table(df_comp, ["atlas", "cms", "h1", "lhcb"])
+table = cross_table(df_comp, ["atlas", "cms", "h1", "lhcb"])
 
+# %%
+
+df_accepted = df[df["accepted"] == True]
+
+df_accepted[performances + parameters]
+
+# %%
+
+s = ""
+for row in table:
+    s += " & ".join([str(x) for x in row]) + "\\\\\hline\n"
+
+print(s)
 # %%

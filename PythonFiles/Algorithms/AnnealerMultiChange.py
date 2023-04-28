@@ -53,7 +53,7 @@ class AnnealerMultiChange:
         return np.exp(c/self.get_temperature(iteration))
     
     # Performance parameters
-    throughput_weight: float = 0.5
+    throughput_weights: float = [0.5, 0.5]
     base_throughput: float = None
     base_size: int = None
     performance: float = None
@@ -150,7 +150,7 @@ class AnnealerMultiChange:
         results, writing_time, processing_time = self.configuration.evaluate(self.benchmark_file, self.data_file, evaluations, folder="generated_base", remove=False)
 
         mean_throughput, size, throughput_increase, size_decrease, performance = \
-            get_performance(results, 0, 0, self.throughput_weight, is_base=True)
+            get_performance(results, 0, 0, self.throughput_weights, is_base=True)
 
         self.base_throughput = mean_throughput
         self.base_size = size

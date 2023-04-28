@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import re
 
 ###############################################################################################################################
 ###### Helper Functions
@@ -56,6 +57,18 @@ def get_throughput(outp: str) -> float:
     total_time_s = total_time / 1_000_000_000
 
     return volume_MB / total_time_s
+
+def get_memory(outp: str) -> float:
+    """ Calculate the throughput of a benchmark given its output
+        Throughput is defined in MB/s based on the unzipped size, and total processing time
+    
+    Args:
+        outp (str)
+
+    Returns:
+        float
+    """
+    return int(re.findall(" (\d+)maxresident", outp)[0])
 
 def get_size(file_name: str) -> float:
     """Get the size of a benchmark file based on the output
@@ -150,3 +163,38 @@ def get_performance(results: list[tuple[int, int]], base_throughput: float,
                     (1-throughput_weight) * size_decrease
     
     return mean_throughput, size, throughput_increase, size_decrease, performance
+
+
+def get_performance2(results: list[tuple[int, int, int]], base_throughput: float, 
+                    base_size: int, base_memory: int, metric_weights: list[float], is_base: bool=False) -> tuple[float, int, float, float, float]:
+    
+    """ Calculate the performance of a benchmark
+
+    Args:
+        results (list[tuple[int, int]]): The throughput and size of multiple runs
+        base_throughput (float): The throughput of the base configuration
+        base_size (int): The size of the base configuration
+        throughput_weight (float): The ration between throughput and size for the performance calculation
+        is_base (bool, optional): If true, the results are seen as the base results. Defaults to False.
+
+    Returns:
+        tuple[float, int, float, float, float]: mean_throughput, size, throughput_increase, size_decrease, performance
+    """
+    
+    mean_throughput = np.mean([x[0] for x in results])
+    size = results[0][1]
+    mean_memory = np.mean([x[2] for x in results])
+
+    if is_base:
+        return mean_throughput, size, mean_memory, 0, 0, 0, 0
+    
+
+    throughput_increase = ((mean_throughput - base_throughput) / base_throughput) * 100
+    size_decrease = ((base_size - size) / base_size) * 100
+    memory_decrease = ((base_memory - mean_memory) / base_memory) * 100
+
+    performance = metric_weights[0] * throughput_increase + \
+                    metric_weights[1] * size_decrease + \
+                    metric_weights[2] * memory_decrease
+    
+    return mean_throughput, size, mean_memory, throughput_increase, size_decrease, memory_decrease, performance

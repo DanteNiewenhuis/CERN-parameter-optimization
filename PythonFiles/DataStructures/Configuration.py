@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from random import choice
 
-from PythonFiles.utils import convertToByteList, convertByteToStr, get_throughput, get_size
+from PythonFiles.utils import convertToByteList, convertByteToStr, get_throughput, get_size, get_memory
 from PythonFiles.DataStructures.Variable import Variable, CategoricalVariable, DiscreteVariable, \
                                                 getCompressionVar, getClusterSizeVar, getClusterBunchVar, getPageSizeVar
 
@@ -84,7 +84,7 @@ class Configuration:
         x = np.arange(len(self.variables)) + 1
         number_of_changes = np.random.choice(x, p=prop)
 
-        idxs_to_change = np.random.choice(x-1, number_of_changes)
+        idxs_to_change = np.random.choice(x-1, number_of_changes, replace=False)
 
         self.mutated_variables = []
         for i in idxs_to_change:
@@ -162,9 +162,11 @@ class Configuration:
         cluster_bunch = self.cluster_bunch_var.value
 
         os.system('sudo sh -c "sync; echo 3 > /proc/sys/vm/drop_caches"')
-        out = subprocess.getstatusoutput(f"./{executable} -i {input_file} -x {cluster_bunch} {use_rdf} -p")
+        out = subprocess.getstatusoutput(f"/usr/bin/time  ./{executable} -i {input_file} -x {cluster_bunch} {use_rdf} -p")
 
-        return get_throughput(out[1])
+
+
+        return get_throughput(out[1]), get_memory(out[1])
     
     def evaluate(self, benchmark_file: str, data_file: str, evaluations: int = 10, folder:str = "generated", remove: bool = True) -> list[float]:
         """ Evaluate the current configuration using a specific benchmark. 
@@ -192,8 +194,8 @@ class Configuration:
         results = []
         start = time.time()
         for _ in tqdm(range(evaluations)):
-            throughput = self.run_benchmark(benchmark_file, data_file, folder)
-            results.append((throughput, size))
+            throughput, memory = self.run_benchmark(benchmark_file, data_file, folder)
+            results.append((throughput, size, memory))
         end = time.time()
         processing_time = end - start
         

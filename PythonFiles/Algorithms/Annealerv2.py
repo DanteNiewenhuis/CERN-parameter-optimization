@@ -10,13 +10,13 @@ from PythonFiles.DataStructures.Configuration import Configuration
 import numpy as np
 from random import random
 
-from PythonFiles.utils import get_performance
+from PythonFiles.utils import get_performance2
 
 
 # %%
 
 @dataclass
-class Annealer:
+class Annealerv2:
     configuration: Configuration = None
     
     # benchmark definitions
@@ -24,7 +24,7 @@ class Annealer:
     data_file: str = "B2HHH"
 
     # Annealer parameters
-    temperature_const: float = 3
+    temperature_const: float = 2.5
     iteration: int = 0
 
     def get_temperature(self, iteration: int) -> float:
@@ -53,7 +53,7 @@ class Annealer:
         return np.exp(c/self.get_temperature(iteration))
     
     # Performance parameters
-    throughput_weights: float = [0.5, 0.5]
+    throughput_weights: float = None
     base_throughput: float = None
     base_size: int = None
     performance: float = None
@@ -77,8 +77,8 @@ class Annealer:
 
         print(f"{results = }")
         # Process the results to get performance measurements
-        mean_throughput, size, throughput_increase, size_decrease, performance = \
-            get_performance(results, self.base_throughput, self.base_size, self.throughput_weight)
+        mean_throughput, size, mean_memory, throughput_increase, size_decrease, memory_decrease, performance = \
+            get_performance2(results, self.base_throughput, self.base_size, self.base_memory, self.throughput_weights)
         
         print(f"{self.performance = }, {performance = }")
         
@@ -88,16 +88,18 @@ class Annealer:
 
         # Logging
         if sucess:
-            self.log_step(results, mean_throughput, throughput_increase, size, size_decrease, performance, True, writing_time, processing_time)
+            self.log_step(results, mean_throughput, throughput_increase, size, size_decrease, mean_memory, memory_decrease, 
+                          performance, True, writing_time, processing_time)
             self.performance = performance
         
         else:
-            self.log_step(results, mean_throughput, throughput_increase, size, size_decrease, performance, False, writing_time, processing_time)
+            self.log_step(results, mean_throughput, throughput_increase, size, size_decrease, mean_memory, memory_decrease, 
+                          performance, False, writing_time, processing_time)
             self.configuration.revert()
             
 
     def log_step(self, results: list[float], throughput:float, throughput_increase:float, size:int, 
-                 size_decrease:float, performance: float = 1.0, accepted:bool = False, writing_time: int = 0, processing_time: int = 0):
+                 size_decrease:float, memory:int, memory_decrease:float, performance: float = 1.0, accepted:bool = False, writing_time: int = 0, processing_time: int = 0):
         """ Log a taken step
 
         Args:
@@ -115,10 +117,12 @@ class Annealer:
             for value in self.configuration.values:
                 wf.write(f"{value},")
 
-            wf.write(f"{throughput:.2f},{size},{throughput_increase:.3f},{size_decrease:.3f},{performance:.3f},{accepted},{writing_time:.3f},{processing_time:.3f}")
+            wf.write(f"{throughput:.2f},{size},{memory:.2f},{throughput_increase:.3f},{size_decrease:.3f},{memory_decrease:.3f},{performance:.3f},{accepted},{writing_time:.3f},{processing_time:.3f}")
 
             for res in results:
                 wf.write(f",{res[0]:.1f}")
+            for res in results:
+                wf.write(f",{res[2]:.1f}")
 
             wf.write("\n")
 
@@ -131,14 +135,15 @@ class Annealer:
         """
         results, writing_time, processing_time = self.configuration.evaluate(self.benchmark_file, self.data_file, evaluations, folder="generated_base", remove=False)
 
-        mean_throughput, size, throughput_increase, size_decrease, performance = \
-            get_performance(results, 0, 0, self.throughput_weights, is_base=True)
+        mean_throughput, size, mean_memory, throughput_increase, size_decrease, memory_decrease, performance = \
+            get_performance2(results, 0, 0, 0, self.throughput_weights, is_base=True)
 
         self.base_throughput = mean_throughput
         self.base_size = size
+        self.base_memory = mean_memory
         self.performance = performance
 
-        self.log_step(results, mean_throughput, throughput_increase, size, size_decrease, performance, True, writing_time, processing_time)
+        self.log_step(results, mean_throughput, throughput_increase, size, size_decrease, mean_memory, memory_decrease, performance, True, writing_time, processing_time)
 
     def evolve(self, steps: int = 100, evaluations: int = 10):
         """ Evolve the current configuration using the simmulated annealing algorithm
@@ -147,7 +152,7 @@ class Annealer:
             steps (int, optional): Number of steps to evolve for. Defaults to 100.
             evaluations (int, optional): Number of times to run a benchmark with a configuration. Defaults to 10.
         """
-        self.write_file: str = f'results/annealer/{self.benchmark_file}/{datetime.now().strftime("%y-%m-%d_%H:%M:%S")}.csv'
+        self.write_file: str = f'results/annealerv2/{self.benchmark_file}/{datetime.now().strftime("%y-%m-%d_%H:%M:%S")}.csv'
         
         with open(self.write_file, "w") as wf:
             wf.write("time,")
@@ -155,10 +160,12 @@ class Annealer:
             for name in self.configuration.names:
                 wf.write(f"{name},")
 
-            wf.write(f"throughput(MB/s),size(MB),throughput_increase(%),size_decrease(%),performance(%),accepted,writing_time,processing_time")
+            wf.write(f"throughput(MB/s),size(MB),memory,throughput_increase(%),size_decrease(%),memory_decrease(%),performance(%),accepted,writing_time,processing_time")
 
             for i in range(evaluations):
-                wf.write(f",res_{i}")
+                wf.write(f",throughput_{i}")
+            for i in range(evaluations):
+                wf.write(f",memory_{i}")
 
             wf.write("\n")
 

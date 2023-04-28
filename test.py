@@ -92,3 +92,11 @@ determine_performance([conf_atlas, conf_lhcb, conf_h1, conf_cms], ["atlas", "lhc
 determine_performance([conf_atlas, conf_lhcb, conf_h1, conf_cms], ["atlas", "lhcb", "h1", "cms"], "lhcb", "B2HHH")
 determine_performance([conf_atlas, conf_lhcb, conf_h1, conf_cms], ["atlas", "lhcb", "h1", "cms"], "h1", "h1dstX10")
 determine_performance([conf_atlas, conf_lhcb, conf_h1, conf_cms], ["atlas", "lhcb", "h1", "cms"], "cms", "ttjet")
+
+
+# %%
+
+print(conf_atlas)
+print(conf_cms)
+print(conf_h1)
+print(conf_lhcb)

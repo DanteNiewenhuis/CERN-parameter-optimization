@@ -6,26 +6,7 @@ import matplotlib.pyplot as plt
 
 from PythonFiles.utils import convertByteToStr
 
-def convertToMB(inp):
-    return inp / 1_048_576
 
-
-def increase_to_decrease(path_to_df):
-    df = pd.read_csv(path_to_df)
-
-    print(df.columns)
-    if 'size_decrease(%)' in list(df.columns):
-        print("skip")
-        return
-
-    df['size_decrease(%)'] = -df['size_increase(%)']
-
-    new_columns = ['compression', 'Page Size', 'Cluster Size', 'Cluster Bunch',
-        'throughput(MB/s)', 'size(MB)', 'throughput_increase(%)',
-        'size_decrease(%)', 'performance(%)', 'accepted', 'res_0', 'res_1',
-        'res_2', 'res_3', 'res_4', 'res_5', 'res_6', 'res_7', 'res_8', 'res_9']
-
-    df.to_csv(path_to_df, columns=new_columns, index=False)
 
 # import os
 
@@ -33,8 +14,7 @@ def increase_to_decrease(path_to_df):
 #     for run in os.listdir(f"results/annealer/{bench}"):
 #         increase_to_decrease(f"results/annealer/{bench}/{run}")
 
-parameters = ["compression", "Page Size", "Cluster Size", "Cluster Bunch"]
-metrics = ["throughput(MB/s)", "size(MB)", "throughput_increase(%)", "size_decrease(%)", "performance(%)"]
+
 
 # %%
 
@@ -48,19 +28,6 @@ df_cms = pd.read_csv("results/annealer/cms/23-04-04_16:56:45.csv")
 
 df = df_h1
 
-print(df[df["accepted"]]['performance(%)'][-5:])
-
-print(df['performance(%)'].max())
-
-
-
-# %%
-
-df = df.sort_values("performance(%)")
-df[df["performance(%)"] > 65]
-
-# %%
-
 for c, s in df.groupby("compression"):
 
     plt.hist(s["performance(%)"], alpha=0.8, label=c)
@@ -68,7 +35,6 @@ for c, s in df.groupby("compression"):
 plt.legend()
 plt.show()
 
-# %%
 
 for c, s in df.groupby("compression"):
     print(c)
@@ -80,32 +46,81 @@ for c, s in df.groupby("compression"):
 # %%
 
 
+
+# %% 
+
+import os
+
+benchmark = "cms"
+
+runs = []
+
+for r in os.listdir(f"results/annealer/{benchmark}"):
+    df = pd.read_csv(f"results/annealer/{benchmark}/{r}")
+
+    df["algorithm"] = "annealer"
+    df["session"] = r
+
+    runs.append(df)
+
+for r in os.listdir(f"results/annealer_multi_change/{benchmark}"):
+    df = pd.read_csv(f"results/annealer_multi_change/{benchmark}/{r}")
+
+    df["algorithm"] = "annealer_multi_change"
+    df["session"] = r
+
+
+    runs.append(df)
+
+
+df_combined = pd.concat(runs)
+
+df = df_combined
+
+for c, s in df.groupby("compression"):
+    plt.scatter(s["size_decrease(%)"], s["throughput_increase(%)"], label=c)
+
+
+plt.xlabel("size decrease (%)")
+plt.ylabel("throughput increase (%)")
+
+plt.axhline(0, color="black", linestyle="dotted", alpha=0.5)
+plt.axvline(0, color="black", linestyle="dotted", alpha=0.5)
+
+plt.title(f"{benchmark}")
+plt.legend(loc="lower center")
+plt.show()
+
 # %%
 
-df = df_cms
+x_data = "Cluster Size"
+y_data = "size_decrease(%)"
 
-res = []
+for g, s in df.groupby("compression"):
+    plt.scatter(s[x_data], s[y_data])
+    plt.title(g)
+    plt.show()
 
-for index,row in df.iterrows():
-    if row["accepted"]:
-        res.append(row["performance(%)"])
-    else:
-        res.append(res[-1])
 
-plt.plot(res, label="accepted")
-plt.scatter(range(len(df)), df["performance(%)"], 
-            color="red", sizes=[5 for _ in range(len(df))],
-            label="attempted")
 
-plt.legend()
+# %%
+from analyis_utils import plot_accepted, convertToMB, parameters
 
-plt.plot()
+df_atlas = pd.read_csv("results/annealerv2/atlas/23-04-24_17:17:56.csv")
+df_cms = pd.read_csv("results/annealerv2/cms/23-04-24_20:37:21.csv")
+df_h1 = pd.read_csv("results/annealerv2/h1/23-04-25_06:00:19.csv")
+df_lhcb = pd.read_csv("results/annealerv2/lhcb/23-04-25_09:39:58.csv")
+
+df = df_lhcb
+
+plot_accepted(df)
+
 
 
 # %%
 
-df_sorted = df_lhcb.sort_values("performance(%)", ascending=False)
+df.sort_values("performance(%)")[-10:][["performance(%)"] + parameters]
 
-start = 0
-end = start + 20
-print(df_sorted[start:end][parameters + ["performance(%)"]])
+# %%
+
+convertToMB(262144)
