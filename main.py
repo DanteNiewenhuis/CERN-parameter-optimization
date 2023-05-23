@@ -2,10 +2,10 @@
 
 from PythonFiles.DataStructures.Configuration import Configuration
 from PythonFiles.Algorithms.Climber import Climber
-# from PythonFiles.Algorithms.Annealer import Annealer
+from PythonFiles.Algorithms.Annealer import Annealer
 from PythonFiles.Algorithms.Annealerv2 import Annealerv2
-# from PythonFiles.Algorithms.AnnealerMultiBench import AnnealerMultiBench
-# from PythonFiles.Algorithms.AnnealerMultiChange import AnnealerMultiChange
+from PythonFiles.Algorithms.AnnealerMultiBench import AnnealerMultiBench
+from PythonFiles.Algorithms.AnnealerMultiChange import AnnealerMultiChange
 import numpy as np
 import matplotlib.pyplot as plt
 
