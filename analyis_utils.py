@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
+import os
+
 parameters = ["compression", "Page Size", "Cluster Size", "Cluster Bunch"]
 metrics = ["throughput(MB/s)", "size(MB)", "throughput_increase(%)", "size_decrease(%)", "performance(%)"]
 
@@ -45,3 +47,35 @@ def plot_accepted(df):
     plt.legend()
 
     plt.plot()
+
+def get_all_results(benchmark):
+    """ Get all the results gathered off a benchmark 
+
+    Args:
+        benchmark (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
+
+    runs = []
+
+    # for r in os.listdir(f"results/annealer/{benchmark}"):
+    #     df = pd.read_csv(f"results/annealer/{benchmark}/{r}")
+
+    #     df["algorithm"] = "annealer"
+    #     df["session"] = r
+
+    #     runs.append(df)
+
+    for r in os.listdir(f"results/annealer_multi_change/{benchmark}"):
+        df = pd.read_csv(f"results/annealer_multi_change/{benchmark}/{r}")
+
+        df["algorithm"] = "annealer_multi_change"
+        df["session"] = r
+
+
+        runs.append(df)
+
+
+    return pd.concat(runs)
