@@ -88,4 +88,33 @@ for i in range(10):
 
 # %%
 
-first_df[:10][other_parameters]
+parameters = ["compression", "Page Size", "Cluster Size", "Cluster Bunch"]
+
+# %%
+
+res = 0
+
+for g, r in df.groupby(parameters):
+
+    if len(r) > 1:
+        print(f"{len(r) = }")
+        res +=1
+
+        print(f"{g =}")
+        print(f"min {r['performance(%)'].min() = }")
+        print(f"max {r['performance(%)'].max() = }")
+        print(f"mean {r['performance(%)'].mean() = }")
+        print(f"std {r['performance(%)'].std() = }")
+
+# %%
+
+rows = get_rows(df, "lz4", 65536, 41943040, 3)
+
+# %%
+
+result_parameters = ['res_0', 'res_1', 'res_2', 'res_3', 'res_4', 'res_5', 'res_6', 'res_7', 'res_8', 'res_9',
+       'res_10', 'res_11', 'res_12', 'res_13', 'res_14', 'res_15', 'res_16',
+       'res_17', 'res_18', 'res_19']
+# %%
+
+rows[result_parameters].max(axis=1)
